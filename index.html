@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PulseTiles" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#070913" />
+  <title>PulseTiles — Music Beat Game</title>
+
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+
+  <style>
+    :root {
+      --bg: #070913;
+      --panel: rgba(15, 20, 38, 0.92);
+      --border: rgba(255, 255, 255, 0.12);
+      --accent: #00e5ff;
+      --accent2: #ff2e93;
+      --gold: #ffd166;
+      --good: #06d6a0;
+      --danger: #ff4d6d;
+      --text: #f4f7ff;
+      --muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      max-width: 540px;
+      height: 100dvh;
+      margin: 0 auto;
+      background: radial-gradient(circle at 50% 20%, #131b38 0%, #070913 70%);
+      overflow: hidden;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: max(10px, env(safe-area-inset-top)) 12px 8px;
+      pointer-events: none;
+      z-index: 10;
+      display: none;
+    }
+
+    .hud-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .hud-pill {
+      background: rgba(10, 14, 28, 0.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-score {
+      font-variant-numeric: tabular-nums;
+      font-size: 16px;
+      color: #fff;
+    }
+
+    .hud-level {
+      color: var(--accent);
+    }
+
+    .hud-actions {
+      display: flex;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: rgba(10, 14, 28, 0.8);
+      color: #fff;
+      font-size: 15px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .icon-btn:active { transform: scale(0.92); }
+
+    .bars {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    #song-progress {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 0.08s linear;
+    }
+
+    #health-fill {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--danger), var(--good));
+      transition: width 0.15s ease;
+    }
+
+    #combo-banner {
+      position: absolute;
+      top: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 9;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    #combo-num {
+      font-size: 40px;
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(0, 229, 255, 0.6);
+    }
+
+    #combo-label {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 8, 18, 0.86);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .overlay.hidden { display: none; }
+
+    .card {
+      width: 100%;
+      max-width: 390px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .logo {
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent), #a855f7, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 18px;
+      line-height: 1.45;
+    }
+
+    .file-drop {
+      display: block;
+      width: 100%;
+      padding: 18px 14px;
+      border: 2px dashed rgba(0, 229, 255, 0.45);
+      border-radius: 16px;
+      background: rgba(0, 229, 255, 0.06);
+      cursor: pointer;
+      margin-bottom: 14px;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .file-drop:active {
+      transform: scale(0.98);
+      background: rgba(0, 229, 255, 0.12);
+    }
+
+    .file-drop input { display: none; }
+
+    .file-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: #fff;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .file-hint {
+      font-size: 12px;
+      color: var(--accent);
+    }
+
+    .seg-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .seg-btn {
+      padding: 9px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .seg-btn.active {
+      background: rgba(0, 229, 255, 0.16);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 18px;
+      border: none;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+      margin-bottom: 10px;
+    }
+
+    .btn:last-child { margin-bottom: 0; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #3b82f6);
+      color: #04101f;
+      box-shadow: 0 8px 24px rgba(0, 229, 255, 0.28);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border: 1px solid var(--border);
+    }
+
+    .btn-pink {
+      background: linear-gradient(135deg, var(--accent2), #8b5cf6);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(255, 46, 147, 0.28);
+    }
+
+    .btn-install {
+      background: rgba(6, 214, 160, 0.16);
+      color: var(--good);
+      border: 1px solid rgba(6, 214, 160, 0.45);
+      display: none;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px;
+    }
+
+    .stat-val { font-size: 20px; font-weight: 800; color: #fff; }
+    .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(255, 255, 255, 0.12);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      margin: 0 auto 14px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .progress-wrap {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+
+    #analyze-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+
+    .top-fs-btn {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top));
+      right: 12px;
+      z-index: 25;
+    }
+
+    .small-note {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas"></canvas>
+
+    <button id="menu-fs-btn" class="icon-btn top-fs-btn" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">⛶</button>
+
+    <div id="hud">
+      <div class="hud-row">
+        <div class="hud-pill">
+          <span class="hud-level" id="hud-level">LVL 1 • 1.00x</span>
+        </div>
+        <div class="hud-pill">
+          <span class="hud-score" id="hud-score">0</span>
+        </div>
+        <div class="hud-actions">
+          <button id="game-fs-btn" class="icon-btn" title="Fullscreen">⛶</button>
+          <button id="pause-btn" class="icon-btn" title="Pause">❚❚</button>
+        </div>
+      </div>
+      <div class="bars">
+        <div class="bar-track"><div id="song-progress"></div></div>
+        <div class="bar-track"><div id="health-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="combo-banner">
+      <div id="combo-num">0</div>
+      <div id="combo-label">COMBO</div>
+    </div>
+
+    <div id="start-overlay" class="overlay">
+      <div class="card">
+        <div class="logo">PulseTiles</div>
+        <div class="subtitle">
+          Load any song from your phone. We extract the beats &amp; tones into falling tiles—each level loops faster!
+        </div>
+
+        <label class="file-drop" id="file-label">
+          <input type="file" id="audio-input" accept="audio/*" />
+          <div class="file-title" id="file-name">🎵 Tap to Choose Audio File</div>
+          <div class="file-hint">MP3, WAV, M4A, OGG — plays locally</div>
+        </label>
+
+        <div class="seg-group" id="difficulty-group">
+          <button class="seg-btn" data-diff="chill">Chill</button>
+          <button class="seg-btn active" data-diff="normal">Normal</button>
+          <button class="seg-btn" data-diff="intense">Intense</button>
+        </div>
+
+        <button id="play-btn" class="btn btn-primary" disabled>Start Game</button>
+        <button id="demo-btn" class="btn btn-secondary">⚡ Try Built-in Synth Beat</button>
+        <button id="install-btn" class="btn btn-install">📲 Install App on Phone</button>
+
+        <div class="small-note" id="pwa-hint">
+          Tip: Tap the 4 lanes at the glowing line. Multi-touch supported!
+        </div>
+      </div>
+    </div>
+
+    <div id="analyze-overlay" class="overlay hidden">
+      <div class="card">
+        <div class="spinner"></div>
+        <div style="font-weight:800; font-size:18px; margin-bottom:6px;">Extracting Beats &amp; Tones</div>
+        <div id="analyze-status" style="font-size:13px; color:var(--muted);">Decoding audio...</div>
+        <div class="progress-wrap"><div id="analyze-bar"></div></div>
+      </div>
+    </div>
+
+    <div id="level-overlay" class="overlay hidden">
+      <div class="card">
+        <div style="font-size:13px; font-weight:800; color:var(--good); letter-spacing:2px;">LEVEL COMPLETE!</div>
+        <div id="lvl-title" style="font-size:26px; font-weight:900; margin:6px 0;">Level 1 Cleared</div>
+        <div id="lvl-next-info" style="font-size:13px; color:var(--accent);">Next: Level 2 at 1.15x Speed</div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-val" id="lvl-score">0</div>
+            <div class="stat-lbl">Total Score</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="lvl-acc">100%</div>
+            <div class="stat-lbl">Accuracy</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="lvl-combo">0</div>
+            <div class="stat-lbl">Max Combo</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="lvl-speed">1.15x</div>
+            <div class="stat-lbl">Next Speed</div>
+          </div>
+        </div>
+
+        <button id="next-lvl-btn" class="btn btn-pink">Start Level 2 Now</button>
+        <button id="lvl-menu-btn" class="btn btn-secondary">Change Song</button>
+      </div>
+    </div>
+
+    <div id="pause-overlay" class="overlay hidden">
+      <div class="card">
+        <div style="font-size:24px; font-weight:900; margin-bottom:14px;">Paused</div>
+        <button id="resume-btn" class="btn btn-primary">Resume</button>
+        <button id="restart-btn" class="btn btn-secondary">Restart Level</button>
+        <button id="quit-btn" class="btn btn-secondary">Choose Another Song</button>
+      </div>
+    </div>
+
+    <div id="gameover-overlay" class="overlay hidden">
+      <div class="card">
+        <div style="font-size:26px; font-weight:900; color:var(--danger); margin-bottom:6px;">Track Failed</div>
+        <div id="go-sub" style="font-size:13px; color:var(--muted);">Too many missed tiles on Level 1</div>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-val" id="go-score">0</div>
+            <div class="stat-lbl">Score</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="go-lvl">1</div>
+            <div class="stat-lbl">Level Reached</div>
+          </div>
+        </div>
+        <button id="retry-btn" class="btn btn-primary">Retry Level</button>
+        <button id="go-menu-btn" class="btn btn-secondary">Change Song</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ==========================================
+      // PWA Service Worker & Install Prompt
+      // ==========================================
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch((err) => {
+            console.warn('SW registration failed:', err);
+          });
+        });
+      }
+
+      let deferredPrompt = null;
+      const installBtn = document.getElementById('install-btn');
+      const pwaHint = document.getElementById('pwa-hint');
+
+      const isStandalone = window.matchMedia('(display-mode: fullscreen)').matches ||
+                           window.matchMedia('(display-mode: standalone)').matches ||
+                           window.navigator.standalone === true;
+
+      if (!isStandalone && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        pwaHint.textContent = 'iPhone PWA: Tap Share (⎙) → "Add to Home Screen" for fullscreen offline app!';
+      }
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (!isStandalone) installBtn.style.display = 'block';
+      });
+
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (outcome === 'accepted') installBtn.style.display = 'none';
+      });
+
+      window.addEventListener('appinstalled', () => {
+        installBtn.style.display = 'none';
+        deferredPrompt = null;
+      });
+
+      // ==========================================
+      // DOM Elements
+      // ==========================================
+      const app = document.getElementById('app');
+      const canvas = document.getElementById('game-canvas');
+      const ctx = canvas.getContext('2d', { alpha: false });
+
+      const hud = document.getElementById('hud');
+      const hudLevel = document.getElementById('hud-level');
+      const hudScore = document.getElementById('hud-score');
+      const songProgress = document.getElementById('song-progress');
+      const healthFill = document.getElementById('health-fill');
+      const comboBanner = document.getElementById('combo-banner');
+      const comboNum = document.getElementById('combo-num');
+
+      const startOverlay = document.getElementById('start-overlay');
+      const analyzeOverlay = document.getElementById('analyze-overlay');
+      const levelOverlay = document.getElementById('level-overlay');
+      const pauseOverlay = document.getElementById('pause-overlay');
+      const gameoverOverlay = document.getElementById('gameover-overlay');
+
+      const audioInput = document.getElementById('audio-input');
+      const fileNameEl = document.getElementById('file-name');
+      const playBtn = document.getElementById('play-btn');
+      const demoBtn = document.getElementById('demo-btn');
+      const analyzeStatus = document.getElementById('analyze-status');
+      const analyzeBar = document.getElementById('analyze-bar');
+
+      const menuFsBtn = document.getElementById('menu-fs-btn');
+      const gameFsBtn = document.getElementById('game-fs-btn');
+      const pauseBtn = document.getElementById('pause-btn');
+      const resumeBtn = document.getElementById('resume-btn');
+      const restartBtn = document.getElementById('restart-btn');
+      const quitBtn = document.getElementById('quit-btn');
+      const nextLvlBtn = document.getElementById('next-lvl-btn');
+      const lvlMenuBtn = document.getElementById('lvl-menu-btn');
+      const retryBtn = document.getElementById('retry-btn');
+      const goMenuBtn = document.getElementById('go-menu-btn');
+
+      // ==========================================
+      // Game State & Audio Variables
+      // ==========================================
+      const LANE_COLORS = ['#00e5ff', '#a855f7', '#ff2e93', '#ffd166'];
+      const NUM_LANES = 4;
+      const BASE_LEAD_TIME = 1.15;
+
+      let audioCtx = null;
+      let loadedFile = null;
+      let decodedBuffer = null;
+      let songDuration = 0;
+      let baseChart = [];
+      let difficulty = 'normal';
+
+      let sourceNode = null;
+      let gainNode = null;
+
+      let state = 'menu';
+      let level = 1;
+      let speedMultiplier = 1.0;
+      let score = 0;
+      let combo = 0;
+      let maxCombo = 0;
+      let health = 100;
+      let hits = 0;
+      let totalNotesInLevel = 0;
+
+      let startCtxTime = 0;
+      let pausedSongTime = 0;
+      let currentSongTime = 0;
+      let activeTiles = [];
+      let nextSpawnIdx = 0;
+      let laneFlash = [0, 0, 0, 0];
+      let particles = [];
+      let popups = [];
+      let bgPulse = 0;
+      let autoAdvanceTimer = null;
+      let rafId = null;
+
+      // ==========================================
+      // Responsive Canvas Sizing
+      // ==========================================
+      let cw = 0, ch = 0, dpr = 1, hitY = 0, laneW = 0, tileH = 0;
+
+      function resizeCanvas() {
+        const rect = app.getBoundingClientRect();
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        cw = rect.width;
+        ch = rect.height;
+        canvas.width = Math.floor(cw * dpr);
+        canvas.height = Math.floor(ch * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        laneW = cw / NUM_LANES;
+        hitY = ch * 0.82;
+        tileH = Math.max(76, Math.min(115, ch * 0.13));
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      // ==========================================
+      // Fullscreen Helper
+      // ==========================================
+      function toggleFullscreen() {
+        const doc = document;
+        const el = document.documentElement;
+        const isFs = doc.fullscreenElement || doc.webkitFullscreenElement;
+        if (!isFs) {
+          if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        } else {
+          if (doc.exitFullscreen) doc.exitFullscreen().catch(() => {});
+          else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+        }
+      }
+
+      function tryEnterFullscreen() {
+        const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+        if (!isFs && !isStandalone && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      }
+
+      menuFsBtn.addEventListener('click', toggleFullscreen);
+      gameFsBtn.addEventListener('click', toggleFullscreen);
+
+      function ensureAudioCtx() {
+        if (!audioCtx) {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AC();
+        }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return audioCtx;
+      }
+
+      document.querySelectorAll('#difficulty-group .seg-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#difficulty-group .seg-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          difficulty = btn.dataset.diff;
+        });
+      });
+
+      audioInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        loadedFile = file;
+        decodedBuffer = null;
+        fileNameEl.textContent = '🎵 ' + file.name;
+        playBtn.disabled = false;
+      });
+
+      // ==========================================
+      // Radix-2 FFT & Beat/Tone Extraction
+      // ==========================================
+      function fft(re, im) {
+        const n = re.length;
+        for (let i = 1, j = 0; i < n; i++) {
+          let bit = n >> 1;
+          for (; j & bit; bit >>= 1) j ^= bit;
+          j ^= bit;
+          if (i < j) {
+            let tmp = re[i]; re[i] = re[j]; re[j] = tmp;
+            tmp = im[i]; im[i] = im[j]; im[j] = tmp;
+          }
+        }
+        for (let len = 2; len <= n; len <<= 1) {
+          const ang = (-2 * Math.PI) / len;
+          const wlenRe = Math.cos(ang);
+          const wlenIm = Math.sin(ang);
+          for (let i = 0; i < n; i += len) {
+            let wRe = 1, wIm = 0;
+            const half = len >> 1;
+            for (let j = 0; j < half; j++) {
+              const uRe = re[i + j];
+              const uIm = im[i + j];
+              const vRe = re[i + j + half] * wRe - im[i + j + half] * wIm;
+              const vIm = re[i + j + half] * wIm + im[i + j + half] * wRe;
+              re[i + j] = uRe + vRe;
+              im[i + j] = uIm + vIm;
+              re[i + j + half] = uRe - vRe;
+              im[i + j + half] = uIm - vIm;
+              const nextWRe = wRe * wlenRe - wIm * wlenIm;
+              wIm = wRe * wlenIm + wIm * wlenRe;
+              wRe = nextWRe;
+            }
+          }
+        }
+      }
+
+      async function analyzeBuffer(buffer, diff) {
+        const sr = buffer.sampleRate;
+        const len = buffer.length;
+        const chCount = buffer.numberOfChannels;
+
+        const mono = new Float32Array(len);
+        for (let c = 0; c < chCount; c++) {
+          const chData = buffer.getChannelData(c);
+          for (let i = 0; i < len; i++) mono[i] += chData[i] / chCount;
+        }
+
+        const N = 512;
+        const hop = 512;
+        const numFrames = Math.floor((len - N) / hop);
+        if (numFrames <= 4) return [];
+
+        const win = new Float32Array(N);
+        for (let i = 0; i < N; i++) {
+          win[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (N - 1)));
+        }
+
+        const re = new Float32Array(N);
+        const im = new Float32Array(N);
+        const prevMag = new Float32Array(N / 2);
+        const flux = new Float32Array(numFrames);
+        const centroid = new Float32Array(numFrames);
+
+        const minBin = Math.max(1, Math.floor((60 * N) / sr));
+        const maxBin = Math.min(N / 2 - 1, Math.floor((8000 * N) / sr));
+
+        for (let f = 0; f < numFrames; f++) {
+          const offset = f * hop;
+          for (let i = 0; i < N; i++) {
+            re[i] = mono[offset + i] * win[i];
+            im[i] = 0;
+          }
+          fft(re, im);
+
+          let frameFlux = 0;
+          let numCent = 0;
+          let denCent = 0;
+
+          for (let k = minBin; k <= maxBin; k++) {
+            const mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+            const diffMag = mag - prevMag[k];
+            if (diffMag > 0) frameFlux += diffMag;
+            prevMag[k] = mag;
+
+            const freq = (k * sr) / N;
+            numCent += freq * mag;
+            denCent += mag;
+          }
+
+          flux[f] = frameFlux;
+          centroid[f] = denCent > 1e-6 ? numCent / denCent : 500;
+
+          if (f % 1500 === 0) {
+            const pct = Math.min(85, Math.round((f / numFrames) * 85));
+            analyzeBar.style.width = pct + '%';
+            analyzeStatus.textContent = `Analyzing tones & beats... ${pct}%`;
+            await new Promise(r => setTimeout(r, 0));
+          }
+        }
+
+        analyzeBar.style.width = '92%';
+        analyzeStatus.textContent = 'Generating synced tiles...';
+        await new Promise(r => setTimeout(r, 0));
+
+        const presets = {
+          chill:   { minGap: 0.34, mult: 1.55, chordChance: 0.0 },
+          normal:  { minGap: 0.21, mult: 1.32, chordChance: 0.08 },
+          intense: { minGap: 0.14, mult: 1.18, chordChance: 0.16 }
+        };
+        const cfg = presets[diff] || presets.normal;
+
+        let meanFlux = 0;
+        for (let i = 0; i < numFrames; i++) meanFlux += flux[i];
+        meanFlux /= numFrames;
+        const minFloor = meanFlux * 0.35;
+
+        const winRadius = 14;
+        const rawPeaks = [];
+        let lastTime = -1;
+
+        for (let i = 2; i < numFrames - 2; i++) {
+          if (flux[i] < flux[i - 1] || flux[i] < flux[i + 1]) continue;
+
+          let localSum = 0;
+          const s = Math.max(0, i - winRadius);
+          const e = Math.min(numFrames - 1, i + winRadius);
+          for (let j = s; j <= e; j++) localSum += flux[j];
+          const localMean = localSum / (e - s + 1);
+
+          const thresh = Math.max(minFloor, localMean * cfg.mult);
+          if (flux[i] > thresh) {
+            const t = (i * hop) / sr;
+            if (t > 0.45 && t < buffer.duration - 0.35 && t - lastTime >= cfg.minGap) {
+              rawPeaks.push({
+                time: t,
+                strength: flux[i] / (localMean + 1e-5),
+                cent: centroid[i]
+              });
+              lastTime = t;
+            }
+          }
+        }
+
+        if (rawPeaks.length < Math.max(8, buffer.duration * 0.5)) {
+          const step = diff === 'chill' ? 0.65 : diff === 'intense' ? 0.35 : 0.5;
+          for (let t = 0.7; t < buffer.duration - 0.5; t += step) {
+            const frameIdx = Math.min(numFrames - 1, Math.floor((t * sr) / hop));
+            if (!rawPeaks.some(p => Math.abs(p.time - t) < cfg.minGap)) {
+              rawPeaks.push({ time: t, strength: 1.5, cent: centroid[frameIdx] });
+            }
+          }
+          rawPeaks.sort((a, b) => a.time - b.time);
+        }
+
+        const cents = rawPeaks.map(p => p.cent).sort((a, b) => a - b);
+        const lowC = cents[Math.floor(cents.length * 0.1)] || 300;
+        const highC = cents[Math.floor(cents.length * 0.9)] || 3000;
+        const spanC = Math.max(200, highC - lowC);
+
+        const tiles = [];
+        let prevLane = -1;
+        let sameLaneCount = 0;
+
+        for (let i = 0; i < rawPeaks.length; i++) {
+          const p = rawPeaks[i];
+          const norm = Math.max(0, Math.min(0.999, (p.cent - lowC) / spanC));
+          let lane = Math.floor(norm * NUM_LANES);
+
+          if (lane === prevLane) {
+            sameLaneCount++;
+            if (sameLaneCount >= 2) {
+              lane = (lane + (i % 2 === 0 ? 1 : 3)) % NUM_LANES;
+              sameLaneCount = 0;
+            }
+          } else {
+            sameLaneCount = 0;
+          }
+
+          tiles.push({ time: p.time, lane, strength: p.strength });
+
+          if (p.strength > 2.35 && Math.random() < cfg.chordChance) {
+            const secondLane = (lane + 2) % NUM_LANES;
+            tiles.push({ time: p.time, lane: secondLane, strength: p.strength });
+          }
+
+          prevLane = lane;
+        }
+
+        analyzeBar.style.width = '100%';
+        return tiles;
+      }
+
+      function createDemoAudioBuffer(actx) {
+        const sr = actx.sampleRate;
+        const duration = 24;
+        const buf = actx.createBuffer(1, sr * duration, sr);
+        const data = buf.getChannelData(0);
+
+        const bpm = 124;
+        const beat = 60 / bpm;
+        const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25];
+        const melodyPattern = [0, 2, 4, 5, 4, 2, 3, 1, 0, 4, 7, 5, 4, 3, 2, 4];
+
+        for (let i = 0; i < data.length; i++) {
+          const t = i / sr;
+          const beatPos = t / beat;
+          const beatFrac = beatPos - Math.floor(beatPos);
+          const step = Math.floor(t / (beat / 2));
+          const stepFrac = (t / (beat / 2)) - step;
+
+          const kickEnv = Math.exp(-beatFrac * 11);
+          const kickFreq = 52 + 120 * Math.exp(-beatFrac * 35);
+          const kick = Math.sin(2 * Math.PI * kickFreq * beatFrac * beat) * kickEnv * 0.55;
+
+          const hatPos = ((beatPos + 0.5) % 1);
+          const hatEnv = Math.exp(-hatPos * 35);
+          const hat = (Math.random() * 2 - 1) * hatEnv * 0.14;
+
+          const noteFreq = scale[melodyPattern[step % melodyPattern.length]];
+          const noteEnv = Math.exp(-stepFrac * 6.5);
+          const synth = (
+            Math.sin(2 * Math.PI * noteFreq * t) * 0.7 +
+            Math.sin(4 * Math.PI * noteFreq * t) * 0.3
+          ) * noteEnv * 0.28;
+
+          const bassFreq = noteFreq * 0.25;
+          const bass = Math.sin(2 * Math.PI * bassFreq * t) * 0.22;
+
+          data[i] = Math.tanh(kick + hat + synth + bass);
+        }
+        return buf;
+      }
+
+      // ==========================================
+      // Start / Playback Management
+      // ==========================================
+      function showOnlyOverlay(overlayEl) {
+        [startOverlay, analyzeOverlay, levelOverlay, pauseOverlay, gameoverOverlay].forEach(el => {
+          el.classList.toggle('hidden', el !== overlayEl);
+        });
+      }
+
+      async function prepareAndStart(useDemo = false) {
+        ensureAudioCtx();
+        tryEnterFullscreen();
+
+        state = 'analyzing';
+        showOnlyOverlay(analyzeOverlay);
+        analyzeBar.style.width = '5%';
+        analyzeStatus.textContent = useDemo ? 'Generating synth beat...' : 'Decoding audio file...';
+
+        try {
+          if (useDemo) {
+            decodedBuffer = createDemoAudioBuffer(audioCtx);
+          } else if (!decodedBuffer) {
+            const arrayBuf = await loadedFile.arrayBuffer();
+            decodedBuffer = await audioCtx.decodeAudioData(arrayBuf);
+          }
+
+          songDuration = decodedBuffer.duration;
+          baseChart = await analyzeBuffer(decodedBuffer, difficulty);
+
+          level = 1;
+          score = 0;
+          startLevel();
+        } catch (err) {
+          console.error(err);
+          alert('Could not decode this audio file. Please try another MP3, WAV, M4A, or OGG file.');
+          state = 'menu';
+          showOnlyOverlay(startOverlay);
+        }
+      }
+
+      playBtn.addEventListener('click', () => {
+        if (!loadedFile) return;
+        prepareAndStart(false);
+      });
+
+      demoBtn.addEventListener('click', () => {
+        loadedFile = null;
+        decodedBuffer = null;
+        fileNameEl.textContent = '⚡ Built-in Synth Beat';
+        prepareAndStart(true);
+      });
+
+      function stopAudio() {
+        if (sourceNode) {
+          try {
+            sourceNode.onended = null;
+            sourceNode.stop();
+            sourceNode.disconnect();
+          } catch (_) {}
+          sourceNode = null;
+        }
+      }
+
+      function startLevel(resumeFrom = 0) {
+        clearInterval(autoAdvanceTimer);
+        stopAudio();
+
+        speedMultiplier = Number((1 + (level - 1) * 0.15).toFixed(2));
+        if (resumeFrom === 0) {
+          combo = 0;
+          maxCombo = 0;
+          health = 100;
+          hits = 0;
+          totalNotesInLevel = baseChart.length;
+          activeTiles = [];
+          nextSpawnIdx = 0;
+          particles = [];
+          popups = [];
+        } else {
+          activeTiles = activeTiles.filter(t => !t.hit && !t.missed);
+        }
+
+        hud.style.display = 'block';
+        menuFsBtn.style.display = 'none';
+        hudLevel.textContent = `LVL ${level} • ${speedMultiplier.toFixed(2)}x`;
+        hudScore.textContent = score.toLocaleString();
+        healthFill.style.width = health + '%';
+        updateComboDisplay();
+
+        showOnlyOverlay(null);
+
+        sourceNode = audioCtx.createBufferSource();
+        sourceNode.buffer = decodedBuffer;
+        sourceNode.playbackRate.value = speedMultiplier;
+
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = 1.0;
+
+        sourceNode.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        const offset = Math.max(0, resumeFrom);
+        startCtxTime = audioCtx.currentTime - offset / speedMultiplier;
+        currentSongTime = offset;
+        sourceNode.start(0, offset);
+
+        state = 'playing';
+        if (!rafId) loop();
+      }
+
+      function updateComboDisplay() {
+        if (combo >= 2) {
+          comboBanner.style.opacity = '1';
+          comboNum.textContent = combo;
+        } else {
+          comboBanner.style.opacity = '0';
+        }
+      }
+
+      // ==========================================
+      // Input Handling
+      // ==========================================
+      function triggerLane(lane) {
+        if (state !== 'playing') return;
+        laneFlash[lane] = 1.0;
+
+        let bestTile = null;
+        let bestRealDiff = Infinity;
+
+        for (let i = 0; i < activeTiles.length; i++) {
+          const tile = activeTiles[i];
+          if (tile.lane !== lane || tile.hit || tile.missed) continue;
+
+          const realDiff = Math.abs((tile.time - currentSongTime) / speedMultiplier);
+          if (realDiff < bestRealDiff) {
+            bestRealDiff = realDiff;
+            bestTile = tile;
+          }
+        }
+
+        if (bestTile && bestRealDiff <= 0.21) {
+          bestTile.hit = true;
+          let label = 'GOOD';
+          let pts = 100;
+          let color = '#06d6a0';
+
+          if (bestRealDiff <= 0.068) {
+            label = 'PERFECT';
+            pts = 300;
+            color = '#00e5ff';
+          } else if (bestRealDiff <= 0.135) {
+            label = 'GREAT';
+            pts = 200;
+            color = '#ffd166';
+          }
+
+          combo++;
+          if (combo > maxCombo) maxCombo = combo;
+          hits++;
+          score += Math.round(pts * (1 + Math.min(combo, 50) * 0.02));
+          health = Math.min(100, health + 4.5);
+          bgPulse = Math.min(1, bgPulse + 0.35);
+
+          hudScore.textContent = score.toLocaleString();
+          healthFill.style.width = health + '%';
+          updateComboDisplay();
+
+          spawnHitEffects(lane, color, label);
+        }
+      }
+
+      function spawnHitEffects(lane, color, label) {
+        const cx = (lane + 0.5) * laneW;
+        for (let i = 0; i < 10; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 80 + Math.random() * 190;
+          particles.push({
+            x: cx,
+            y: hitY,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 40,
+            life: 1,
+            color
+          });
+        }
+        popups.push({
+          x: cx,
+          y: hitY - 34,
+          text: label,
+          color,
+          life: 1
+        });
+      }
+
+      canvas.addEventListener('pointerdown', (e) => {
+        if (state !== 'playing') return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const lane = Math.max(0, Math.min(NUM_LANES - 1, Math.floor((x / rect.width) * NUM_LANES)));
+        triggerLane(lane);
+      }, { passive: false });
+
+      window.addEventListener('keydown', (e) => {
+        if (state !== 'playing') return;
+        const map = { KeyD: 0, KeyF: 1, KeyJ: 2, KeyK: 3, Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 };
+        if (e.code in map && !e.repeat) triggerLane(map[e.code]);
+      });
+
+      pauseBtn.addEventListener('click', () => {
+        if (state !== 'playing') return;
+        state = 'paused';
+        pausedSongTime = currentSongTime;
+        stopAudio();
+        showOnlyOverlay(pauseOverlay);
+      });
+
+      resumeBtn.addEventListener('click', () => {
+        if (state !== 'paused') return;
+        startLevel(pausedSongTime);
+      });
+
+      restartBtn.addEventListener('click', () => startLevel(0));
+      retryBtn.addEventListener('click', () => startLevel(0));
+
+      nextLvlBtn.addEventListener('click', () => {
+        level++;
+        startLevel(0);
+      });
+
+      function backToMenu() {
+        clearInterval(autoAdvanceTimer);
+        stopAudio();
+        state = 'menu';
+        hud.style.display = 'none';
+        comboBanner.style.opacity = '0';
+        menuFsBtn.style.display = 'grid';
+        showOnlyOverlay(startOverlay);
+      }
+
+      quitBtn.addEventListener('click', backToMenu);
+      lvlMenuBtn.addEventListener('click', backToMenu);
+      goMenuBtn.addEventListener('click', backToMenu);
+
+      function handleLevelComplete() {
+        state = 'level_complete';
+        stopAudio();
+        comboBanner.style.opacity = '0';
+
+        const acc = totalNotesInLevel > 0 ? Math.round((hits / totalNotesInLevel) * 100) : 100;
+        const nextSpd = (1 + level * 0.15).toFixed(2);
+
+        document.getElementById('lvl-title').textContent = `Level ${level} Cleared!`;
+        document.getElementById('lvl-next-info').textContent = `Next: Level ${level + 1} at ${nextSpd}x Speed`;
+        document.getElementById('lvl-score').textContent = score.toLocaleString();
+        document.getElementById('lvl-acc').textContent = acc + '%';
+        document.getElementById('lvl-combo').textContent = maxCombo;
+        document.getElementById('lvl-speed').textContent = nextSpd + 'x';
+        nextLvlBtn.textContent = `Start Level ${level + 1} (${nextSpd}x)`;
+
+        showOnlyOverlay(levelOverlay);
+
+        let countdown = 3;
+        autoAdvanceTimer = setInterval(() => {
+          countdown--;
+          if (countdown > 0) {
+            nextLvlBtn.textContent = `Starting Level ${level + 1} in ${countdown}s...`;
+          } else {
+            clearInterval(autoAdvanceTimer);
+            if (state === 'level_complete') {
+              level++;
+              startLevel(0);
+            }
+          }
+        }, 1000);
+      }
+
+      function handleGameOver() {
+        state = 'gameover';
+        stopAudio();
+        comboBanner.style.opacity = '0';
+        document.getElementById('go-sub').textContent = `Too many missed tiles on Level ${level} (${speedMultiplier.toFixed(2)}x)`;
+        document.getElementById('go-score').textContent = score.toLocaleString();
+        document.getElementById('go-lvl').textContent = level;
+        showOnlyOverlay(gameoverOverlay);
+      }
+
+      // ==========================================
+      // Main Render & Update Loop
+      // ==========================================
+      let lastFrameTime = performance.now();
+
+      function loop(now = performance.now()) {
+        const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+        lastFrameTime = now;
+
+        if (state === 'playing') {
+          currentSongTime = (audioCtx.currentTime - startCtxTime) * speedMultiplier;
+          const pct = Math.min(100, Math.max(0, (currentSongTime / songDuration) * 100));
+          songProgress.style.width = pct + '%';
+
+          const songLead = BASE_LEAD_TIME * speedMultiplier;
+          while (nextSpawnIdx < baseChart.length && baseChart[nextSpawnIdx].time <= currentSongTime + songLead + 0.1) {
+            const note = baseChart[nextSpawnIdx++];
+            activeTiles.push({
+              time: note.time,
+              lane: note.lane,
+              hit: false,
+              missed: false
+            });
+          }
+
+          for (let i = 0; i < activeTiles.length; i++) {
+            const tile = activeTiles[i];
+            if (!tile.hit && !tile.missed) {
+              const realDiff = (currentSongTime - tile.time) / speedMultiplier;
+              if (realDiff > 0.22) {
+                tile.missed = true;
+                combo = 0;
+                health -= 11;
+                healthFill.style.width = Math.max(0, health) + '%';
+                updateComboDisplay();
+                popups.push({
+                  x: (tile.lane + 0.5) * laneW,
+                  y: hitY + 24,
+                  text: 'MISS',
+                  color: '#ff4d6d',
+                  life: 1
+                });
+                if (health <= 0) {
+                  handleGameOver();
+                  break;
+                }
+              }
+            }
+          }
+
+          activeTiles = activeTiles.filter(t => !t.hit && ((t.time - currentSongTime) / speedMultiplier) > -0.45);
+
+          if (state === 'playing' && currentSongTime >= songDuration - 0.05) {
+            handleLevelComplete();
+          }
+        }
+
+        drawFrame(dt);
+        rafId = requestAnimationFrame(loop);
+      }
+
+      function drawRoundRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+        ctx.closePath();
+      }
+
+      function drawFrame(dt) {
+        ctx.fillStyle = '#070913';
+        ctx.fillRect(0, 0, cw, ch);
+
+        if (bgPulse > 0) {
+          bgPulse = Math.max(0, bgPulse - dt * 2.5);
+          const grad = ctx.createRadialGradient(cw / 2, hitY, 10, cw / 2, hitY, ch * 0.7);
+          grad.addColorStop(0, `rgba(0, 229, 255, ${0.14 * bgPulse})`);
+          grad.addColorStop(1, 'rgba(7, 9, 19, 0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, cw, ch);
+        }
+
+        for (let i = 0; i < NUM_LANES; i++) {
+          const lx = i * laneW;
+          if (laneFlash[i] > 0) {
+            laneFlash[i] = Math.max(0, laneFlash[i] - dt * 5);
+            const g = ctx.createLinearGradient(0, hitY - 220, 0, ch);
+            g.addColorStop(0, 'rgba(255,255,255,0)');
+            g.addColorStop(0.75, hexToRgba(LANE_COLORS[i], 0.24 * laneFlash[i]));
+            g.addColorStop(1, hexToRgba(LANE_COLORS[i], 0.05 * laneFlash[i]));
+            ctx.fillStyle = g;
+            ctx.fillRect(lx, 0, laneW, ch);
+          }
+
+          if (i > 0) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(lx, 0);
+            ctx.lineTo(lx, ch);
+            ctx.stroke();
+          }
+        }
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.fillRect(0, hitY - 18, cw, 36);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, hitY);
+        ctx.lineTo(cw, hitY);
+        ctx.stroke();
+
+        for (let i = 0; i < NUM_LANES; i++) {
+          const padX = i * laneW + 8;
+          const padW = laneW - 16;
+          ctx.strokeStyle = hexToRgba(LANE_COLORS[i], 0.45 + laneFlash[i] * 0.55);
+          ctx.lineWidth = 2;
+          drawRoundRect(padX, hitY - 14, padW, 28, 8);
+          ctx.stroke();
+        }
+
+        if (state === 'playing' || state === 'paused') {
+          const pad = 6;
+          const tw = laneW - pad * 2;
+          for (let i = 0; i < activeTiles.length; i++) {
+            const tile = activeTiles[i];
+            if (tile.hit) continue;
+
+            const realTimeUntilHit = (tile.time - currentSongTime) / speedMultiplier;
+            const progress = 1 - realTimeUntilHit / BASE_LEAD_TIME;
+            const centerY = progress * hitY;
+            const topY = centerY - tileH / 2;
+
+            if (topY > ch || topY + tileH < -20) continue;
+
+            const x = tile.lane * laneW + pad;
+            const col = LANE_COLORS[tile.lane];
+
+            ctx.save();
+            ctx.globalAlpha = tile.missed ? 0.3 : 1;
+
+            const tg = ctx.createLinearGradient(x, topY, x, topY + tileH);
+            tg.addColorStop(0, col);
+            tg.addColorStop(1, '#111827');
+
+            ctx.fillStyle = tg;
+            drawRoundRect(x, topY, tw, tileH, 12);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            drawRoundRect(x + 6, topY + 6, tw - 12, 6, 3);
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.lineWidth = 1.5;
+            drawRoundRect(x, topY, tw, tileH, 12);
+            ctx.stroke();
+
+            ctx.restore();
+          }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vy += 320 * dt;
+          p.life -= dt * 2.4;
+          if (p.life <= 0) {
+            particles.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        ctx.textAlign = 'center';
+        ctx.font = '800 14px -apple-system, BlinkMacSystemFont, sans-serif';
+        for (let i = popups.length - 1; i >= 0; i--) {
+          const pop = popups[i];
+          pop.y -= 42 * dt;
+          pop.life -= dt * 2.1;
+          if (pop.life <= 0) {
+            popups.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = pop.life;
+          ctx.fillStyle = pop.color;
+          ctx.fillText(pop.text, pop.x, pop.y);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function hexToRgba(hex, alpha) {
+        const v = parseInt(hex.slice(1), 16);
+        const r = (v >> 16) & 255;
+        const g = (v >> 8) & 255;
+        const b = v & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      rafId = requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
